@@ -23,4 +23,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: renangarcia/vault:latest
+          tags: renanmoreiraluz/vault:latest
