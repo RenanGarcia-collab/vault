@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="page-crumbs">
+    <a href="{{ url_for('index') }}">Dashboard</a>
+    <span>/</span>
+    <strong>Nova pasta</strong>
+  </div>
+
+  <div class="page-actions">
+    <a class="btn ghost" href="{{ url_for('index') }}">Voltar ao dashboard</a>
+  </div>
+
+  <div class="card form">
+    <h1>Nova pasta</h1>
+    <form method="post">
+      <label>Nome da pasta</label>
+      <input name="name" value="{{ form_data.get('name', '') }}" required placeholder="Ex.: Clientes Norte">
+      <label>Pasta pai (opcional)</label>
+      <select name="parent_id">
+        <option value="">Sem pasta pai</option>
+        {% for f in folder_options %}
+          <option value="{{ f['id'] }}" {% if form_data.get('parent_id') and form_data.get('parent_id')|int == f['id'] %}selected{% elif parent_prefill and parent_prefill|int == f['id'] %}selected{% endif %}>{{ f['name'] }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn primary" type="submit">Criar</button>
+    </form>
+  </div>
+
+  {% if duplicate_name_warning %}
+    <div class="confirm-modal-backdrop">
+      <div class="confirm-modal">
+        <div class="pulse-badge">CONFIRMAR NOME REPETIDO</div>
+        <h2>{{ duplicate_name_warning['name'] }} já existe em outro ramo</h2>
+        <p>Já existe uma pasta com esse nome sob <strong>{{ duplicate_name_warning['existing_folder'] }}</strong>. Deseja criar outra com o mesmo nome sob <strong>{{ duplicate_name_warning['current_folder'] }}</strong>?</p>
+        <div class="actions">
+          <a class="btn ghost" href="{{ url_for('folders_new') }}">Cancelar</a>
+          <form method="post">
+            <input type="hidden" name="name" value="{{ form_data.get('name', '') }}">
+            <input type="hidden" name="parent_id" value="{{ form_data.get('parent_id', '') }}">
+            <input type="hidden" name="confirm_duplicate_name" value="1">
+            <button class="btn primary" type="submit">Sim, criar pasta</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

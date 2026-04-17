@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="page-crumbs">
+    <a href="{{ url_for('index') }}">Dashboard</a>
+    {% if device and device['folder_id'] %}
+      <span>/</span>
+      <a href="{{ url_for('folder_detail', folder_id=device['folder_id']) }}">Pasta</a>
+    {% endif %}
+    {% if device and device['id'] %}
+      <span>/</span>
+      <a href="{{ url_for('device_detail', device_id=device['id']) }}">{{ device['name'] }}</a>
+    {% endif %}
+    <span>/</span>
+    <strong>{{ backup_name }}</strong>
+  </div>
+
+  <div class="card">
+    <div class="card-title">{{ device['name'] }} · {{ backup_name }}</div>
+    <div class="meta">{{ backup_path }}</div>
+    <div class="actions">
+      <a class="btn" href="{{ url_for('download_backup') }}?path={{ backup_path }}">Baixar</a>
+      <button class="btn" type="button" id="copy-backup">Copiar conteudo</button>
+      <a class="btn ghost" href="{{ url_for('index') }}">Dashboard</a>
+      <a class="btn ghost" href="{% if device and device['id'] %}{{ url_for('device_detail', device_id=device['id']) }}{% else %}{{ url_for('index') }}{% endif %}">Voltar aos detalhes do equipamento</a>
+    </div>
+  </div>
+
+  <div class="card code">
+    <pre>{{ content }}</pre>
+  </div>
+  <script>
+    (function () {
+      const btn = document.getElementById("copy-backup");
+      if (!btn) return;
+      btn.addEventListener("click", async () => {
+        const text = {{ content | tojson }};
+        try {
+          await navigator.clipboard.writeText(text);
+          btn.textContent = "Copiado";
+          setTimeout(() => { btn.textContent = "Copiar conteudo"; }, 1500);
+        } catch (e) {
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand("copy"); } catch (err) {}
+          document.body.removeChild(ta);
+          btn.textContent = "Copiado";
+          setTimeout(() => { btn.textContent = "Copiar conteudo"; }, 1500);
+        }
+      });
+    })();
+  </script>
+{% endblock %}

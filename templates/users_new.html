@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="page-crumbs">
+    <a href="{{ url_for('index') }}">Dashboard</a>
+    <span>/</span>
+    <strong>Usuários</strong>
+  </div>
+
+  <div class="page-actions">
+    <a class="btn ghost" href="{{ url_for('index') }}">Voltar ao dashboard</a>
+  </div>
+
+  <div class="card form">
+    <h1>Novo usuário</h1>
+    <form method="post">
+      <label>Identificador</label>
+      <input name="username" required>
+      <label>Login no equipamento (apenas perfil Equipamento)</label>
+      <input name="login_username" placeholder="ex.: renan.bsb">
+      <label>Senha</label>
+      <input type="password" name="password" required>
+      <label>Perfil</label>
+      <select name="role">
+        <option value="device">Equipamento</option>
+        <option value="admin">Admin</option>
+      </select>
+      <div class="subtle">A associação do perfil Equipamento é feita no cadastro ou na edição do dispositivo.</div>
+      <div class="subtle">Se um usuário de perfil Equipamento já existir, salvar novamente aqui atualiza a senha usada no acesso ao equipamento.</div>
+      <button class="btn primary" type="submit">Salvar</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Usuários existentes</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Identificador</th>
+          <th>Login real</th>
+          <th>Perfil</th>
+          <th>Criado em</th>
+          <th>Senha</th>
+          <th>Atualizar senha</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in users %}
+          <tr>
+            <td class="mono">{{ item['username'] }}</td>
+            <td class="mono">{{ item['login_username'] or '—' }}</td>
+            <td>{{ item['role'] }}</td>
+            <td>{{ format_datetime(item['created_at']) }}</td>
+            <td>
+              {% if item['role'] == 'device' and item['plain_password'] %}
+                <div class="password-peek">
+                  <input id="pw-{{ item['id'] }}" type="password" value="{{ item['plain_password'] }}" readonly>
+                  <button class="btn ghost" type="button" onclick="togglePassword('pw-{{ item['id'] }}', this)">Olho</button>
+                </div>
+              {% else %}
+                <span class="badge-none">Não disponível</span>
+              {% endif %}
+            </td>
+            <td>
+              <form method="post" action="{{ url_for('users_password', user_id=item['id']) }}" class="inline-password-form">
+                <input type="password" name="password" placeholder="Nova senha" required>
+                <button class="btn ghost" type="submit">Atualizar</button>
+              </form>
+            </td>
+            <td>
+              <form method="post" action="{{ url_for('users_delete', user_id=item['id']) }}" onsubmit="return confirm('Tem certeza de que deseja excluir este usuário?')">
+                <button class="btn danger" type="submit">Excluir</button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7">Nenhum usuário cadastrado.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+function togglePassword(id, btn) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const showing = el.type === 'text';
+  el.type = showing ? 'password' : 'text';
+  btn.textContent = showing ? 'Olho' : 'Ocultar';
+}
+</script>
+{% endblock %}

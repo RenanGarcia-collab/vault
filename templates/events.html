@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="dashboard-section-head">
+    <div>
+      <div class="pulse-badge">ÚLTIMOS EVENTOS</div>
+      <h2>Histórico de rotinas</h2>
+    </div>
+    <div class="dashboard-section-meta">{{ total }} registros</div>
+  </div>
+
+  <div class="filter-bar">
+    <div class="filter-summary">
+      <div class="filter-label">Últimos 7 dias</div>
+      <div class="summary-row">
+        <span class="summary-pill summary-pill-success">{{ recent_success }} sucessos</span>
+        <span class="summary-pill summary-pill-error">{{ recent_errors }} erros</span>
+      </div>
+    </div>
+    <div class="filter-links">
+      <a class="pill pill-all {% if status == 'all' %}active{% endif %}" href="{{ url_for('events', status='all', page=1, start=start_date, end=end_date) }}">Todos</a>
+      <a class="pill pill-success {% if status == 'success' %}active{% endif %}" href="{{ url_for('events', status='success', page=1, start=start_date, end=end_date) }}">Sucesso</a>
+      <a class="pill pill-error {% if status == 'error' %}active{% endif %}" href="{{ url_for('events', status='error', page=1, start=start_date, end=end_date) }}">Erro</a>
+    </div>
+  </div>
+  <form class="filter-bar filter-bar-inline" method="get" action="{{ url_for('events') }}">
+    <input type="hidden" name="status" value="{{ status }}">
+    <div class="date-range">
+      <input id="date-start" class="date-input" type="text" name="start" value="{{ start_date }}" placeholder="Início" readonly>
+      <span class="date-sep">→</span>
+      <input id="date-end" class="date-input" type="text" name="end" value="{{ end_date }}" placeholder="Fim" readonly>
+    </div>
+    <button class="btn ghost" type="button" id="today-btn">Hoje</button>
+    <button class="btn" type="submit">Filtrar</button>
+    <a class="btn ghost" href="{{ url_for('events', status=status, page=1) }}">Limpar</a>
+  </form>
+
+  <div class="card recent-card">
+    {% if rows %}
+      <ul class="recent-list">
+        {% for row in rows %}
+          <li class="recent-item evento-item">
+            <div class="recent-item-main">
+              <div class="recent-title">{{ row['device_name'] or 'Dispositivo' }}</div>
+              <div class="recent-meta">{{ format_datetime(row['created_at']) }}</div>
+              {% if row['message'] %}
+                <div class="recent-note">{{ row['message'] }}</div>
+              {% endif %}
+            </div>
+            <span class="badge badge-{{ row['status'] }}">{{ status_labels.get(row['status'], row['status']) }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="empty-state">Nenhum evento registrado.</div>
+    {% endif %}
+  </div>
+
+  <div class="pager">
+    <div class="pager-meta">Página {{ page }} de {{ total_pages }}</div>
+    <div class="pager-links">
+      {% if page > 1 %}
+        <a class="btn ghost" href="{{ url_for('events', page=page-1, status=status, start=start_date, end=end_date) }}">Anterior</a>
+      {% else %}
+        <span class="btn ghost disabled">Anterior</span>
+      {% endif %}
+      {% if page < total_pages %}
+        <a class="btn ghost" href="{{ url_for('events', page=page+1, status=status, start=start_date, end=end_date) }}">Próxima</a>
+      {% else %}
+        <span class="btn ghost disabled">Próxima</span>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+  if (window.flatpickr) {
+    const fpStart = flatpickr('#date-start', { locale: 'pt', dateFormat: 'Y-m-d', altInput: true, altFormat: 'd/m/Y', allowInput: false });
+    const fpEnd = flatpickr('#date-end', { locale: 'pt', dateFormat: 'Y-m-d', altInput: true, altFormat: 'd/m/Y', allowInput: false });
+    const todayBtn = document.getElementById('today-btn');
+    if (todayBtn) {
+      todayBtn.addEventListener('click', () => {
+        const today = new Date();
+        fpStart.setDate(today, true, 'Y-m-d');
+        fpEnd.setDate(today, true, 'Y-m-d');
+        todayBtn.closest('form').submit();
+      });
+    }
+  }
+</script>
+{% endblock %}

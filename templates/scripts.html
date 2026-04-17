@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="page-crumbs">
+    <a href="{{ url_for('index') }}">Dashboard</a>
+    <span>/</span>
+    <strong>Scripts</strong>
+  </div>
+
+  <div class="page-actions">
+    <a class="btn ghost" href="{{ url_for('index') }}">Voltar ao dashboard</a>
+  </div>
+
+  <div class="card scripts-hero">
+    <h1>Scripts</h1>
+    <div class="meta">Ajuste os perfis de coleta usados pelos equipamentos. Cisco foi removido desta tela.</div>
+    <div class="scripts-summary">
+      <span class="status-tag status-ok">{{ scripts|length }} perfis ativos</span>
+      <span class="subtle">Huawei, Juniper, Mikrotik e Datacom</span>
+    </div>
+  </div>
+
+  <form method="post" class="scripts-grid">
+    {% for s in scripts %}
+      <section class="card script-card form">
+        <div class="script-card-head">
+          <div>
+            <h2>{{ s['name'] }}</h2>
+            <div class="chip {{ s['vendor'] | lower }}">{{ s['vendor'] | upper }}</div>
+          </div>
+          <div class="script-card-meta">
+            <span class="subtle">ID {{ s['id'] }}</span>
+          </div>
+        </div>
+
+        <label>Nome</label>
+        <input name="name_{{ s['id'] }}" value="{{ s['name'] }}">
+
+        <label>Fabricante</label>
+        <input name="vendor_{{ s['id'] }}" value="{{ s['vendor'] }}" readonly>
+
+        <label>Comandos pré (1 por linha)</label>
+        <textarea name="pre_{{ s['id'] }}" rows="4">{{ s['pre_text'] or '' }}</textarea>
+
+        <label>Comando principal</label>
+        <input name="cmd_{{ s['id'] }}" value="{{ s['cmd'] or '' }}">
+
+        <label>Prompt (se usar shell)</label>
+        <input name="prompt_{{ s['id'] }}" value="{{ s['prompt'] or '' }}">
+
+        <div class="script-inline-fields">
+          <div>
+            <label>Modo de leitura</label>
+            <select name="read_mode_{{ s['id'] }}">
+              <option value="exec" {% if s['read_mode']=='exec' %}selected{% endif %}>exec</option>
+              <option value="shell" {% if s['read_mode']=='shell' %}selected{% endif %}>shell</option>
+            </select>
+          </div>
+          <div>
+            <label>Sleep (segundos)</label>
+            <input name="sleep_{{ s['id'] }}" type="number" min="0" value="{{ s['sleep'] or 0 }}">
+          </div>
+          <div>
+            <label>Timeout (segundos)</label>
+            <input name="timeout_{{ s['id'] }}" type="number" min="10" value="{{ s['timeout_seconds'] or 180 }}">
+          </div>
+        </div>
+      </section>
+    {% endfor %}
+
+    <div class="scripts-actions">
+      <button class="btn primary" type="submit">Salvar alterações</button>
+    </div>
+  </form>
+{% endblock %}

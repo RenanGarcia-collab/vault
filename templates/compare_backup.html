@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="page-crumbs">
+    <a href="{{ url_for('index') }}">Dashboard</a>
+    {% if device and device['folder_id'] %}
+      <span>/</span>
+      <a href="{{ url_for('folder_detail', folder_id=device['folder_id']) }}">Pasta</a>
+    {% endif %}
+    {% if device and device['id'] %}
+      <span>/</span>
+      <a href="{{ url_for('device_detail', device_id=device['id']) }}">{{ device['name'] }}</a>
+    {% endif %}
+    <span>/</span>
+    <strong>Comparar backups</strong>
+  </div>
+
+  <div class="card">
+    <div class="pulse-badge">ALTERACOES DO DEVICE</div>
+    <div class="card-title">Confira as mudancas que houve no device {{ device['name'] }}</div>
+    <div class="diff-summary-row">
+      <span class="status-tag status-ok">+{{ added_lines }} linhas</span>
+      <span class="status-tag status-error">-{{ removed_lines }} linhas</span>
+    </div>
+    <div class="meta">Atual: <span class="mono">{{ current_path }}</span></div>
+    <div class="meta">Anterior: <span class="mono">{{ previous_path }}</span></div>
+    <div class="actions">
+      <a class="btn ghost" href="{{ url_for('device_detail', device_id=device['id']) }}">Voltar ao equipamento</a>
+      <a class="btn" href="{{ url_for('view_backup') }}?path={{ current_path }}">Ver backup atual</a>
+      <a class="btn ghost" href="{{ url_for('view_backup') }}?path={{ previous_path }}">Ver backup anterior</a>
+    </div>
+  </div>
+
+  {% if diff_snippets %}
+    <div class="card">
+      <div class="meta">Mostrando apenas os trechos que mudaram em relacao ao backup anterior.</div>
+    </div>
+    {% for block in diff_snippets %}
+      <div class="card diff-snippet-card">
+        <div class="snippet-header">Mudança encontrada no bloco de configuração</div>
+        <pre class="diff-block">{% for line in block['lines'] %}<span class="diff-line diff-line-{{ line['kind'] }}">{% if line['kind'] == 'removed' %}<span class="diff-label diff-label-removed">Antes</span>{% elif line['kind'] == 'added' %}<span class="diff-label diff-label-added">Depois</span>{% endif %}{{ line['text'] }}</span>
+{% endfor %}</pre>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="card">
+      <div class="badge-none">Nenhum trecho alterado foi encontrado para exibicao.</div>
+    </div>
+  {% endif %}
+{% endblock %}

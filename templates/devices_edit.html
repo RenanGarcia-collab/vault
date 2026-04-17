@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="page-crumbs">
+    <a href="{{ url_for('index') }}">Dashboard</a>
+    {% if device['folder_id'] %}
+      <span>/</span>
+      <a href="{{ url_for('folder_detail', folder_id=device['folder_id']) }}">Pasta</a>
+    {% endif %}
+    <span>/</span>
+    <a href="{{ url_for('device_detail', device_id=device['id']) }}">{{ device['name'] }}</a>
+    <span>/</span>
+    <strong>Editar</strong>
+  </div>
+
+  <div class="page-actions">
+    <a class="btn ghost" href="{{ url_for('device_detail', device_id=device['id']) }}">Voltar ao equipamento</a>
+    {% if device['folder_id'] %}
+      <a class="btn ghost" href="{{ url_for('folder_detail', folder_id=device['folder_id']) }}">Voltar para pasta</a>
+    {% endif %}
+  </div>
+
+  <div class="card form">
+    <h1>Editar equipamento</h1>
+    <form method="post">
+      <label>Nome</label>
+      <input name="name" value="{{ form_data.get('name', device['name']) }}" required>
+      <label>Pasta</label>
+      <select name="folder_id" required>
+        {% for f in folder_options %}
+          <option value="{{ f['id'] }}" {% if form_data.get('folder_id') and form_data.get('folder_id')|int == f['id'] %}selected{% elif device['folder_id']==f['id'] %}selected{% endif %}>{{ f['name'] }}</option>
+        {% endfor %}
+      </select>
+      <label>Tipo de coleta</label>
+      <select name="script_id" required>
+        {% for s in scripts %}
+          <option value="{{ s['id'] }}" {% if form_data.get('script_id') and form_data.get('script_id')|int == s['id'] %}selected{% elif device['script_id']==s['id'] %}selected{% endif %}>{{ s['name'] }}</option>
+        {% endfor %}
+      </select>
+      <label>IP</label>
+      <input name="ipaddr" value="{{ form_data.get('ipaddr', device['ipaddr']) }}" required>
+      <label>Porta SSH</label>
+      <input name="port" value="{{ form_data.get('port', device['port']) }}">
+      <label>Usuário do sistema vinculado (perfil Equipamento)</label>
+      <select name="user_id" required>
+        <option value="">Selecione</option>
+        {% for item in device_users %}
+          <option value="{{ item['id'] }}" {% if form_data.get('user_id') and form_data.get('user_id')|int == item['id'] %}selected{% elif assigned_user and assigned_user['id'] == item['id'] %}selected{% endif %}>{{ item['username'] }}</option>
+        {% endfor %}
+      </select>
+      <div class="subtle">O acesso ao equipamento será feito obrigatoriamente com o usuário e a senha cadastrados nesse usuário do sistema.</div>
+      <label>Comando override (opcional)</label>
+      <input name="command_override" value="{{ form_data.get('command_override', device['command_override'] or '') }}" placeholder="ex.: show configuration | no-more">
+      <button class="btn primary" type="submit">Salvar</button>
+    </form>
+  </div>
+
+  {% if duplicate_name_warning %}
+    <div class="confirm-modal-backdrop">
+      <div class="confirm-modal">
+        <div class="pulse-badge">CONFIRMAR NOME REPETIDO</div>
+        <h2>{{ duplicate_name_warning['name'] }} já existe em outra pasta</h2>
+        <p>Esse equipamento já está cadastrado em <strong>{{ duplicate_name_warning['existing_folder'] }}</strong>. Deseja manter o mesmo nome em <strong>{{ duplicate_name_warning['current_folder'] }}</strong>?</p>
+        <div class="actions">
+          <a class="btn ghost" href="{{ url_for('devices_edit', device_id=device['id']) }}">Cancelar</a>
+          <form method="post">
+            <input type="hidden" name="name" value="{{ form_data.get('name', '') }}">
+            <input type="hidden" name="folder_id" value="{{ form_data.get('folder_id', '') }}">
+            <input type="hidden" name="script_id" value="{{ form_data.get('script_id', '') }}">
+            <input type="hidden" name="ipaddr" value="{{ form_data.get('ipaddr', '') }}">
+            <input type="hidden" name="port" value="{{ form_data.get('port', '22') }}">
+            <input type="hidden" name="user_id" value="{{ form_data.get('user_id', '') }}">
+            <input type="hidden" name="command_override" value="{{ form_data.get('command_override', '') }}">
+            <input type="hidden" name="confirm_duplicate_name" value="1">
+            <button class="btn primary" type="submit">Sim, manter nome</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

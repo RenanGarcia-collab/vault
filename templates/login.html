@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block body_class %}auth-body{% endblock %}
+{% block topbar %}{% endblock %}
+{% block content %}
+  <section class="auth-shell">
+    <div class="auth-panel auth-panel-info">
+      <div class="auth-brand">VAULT</div>
+      <h1 class="auth-title">Gestão de backups</h1>
+      <p class="auth-copy">
+        Centralize backups, acompanhe execuções dos equipamentos e visualize falhas em um único painel operacional.
+      </p>
+    </div>
+
+    <div class="auth-panel auth-panel-form">
+      <div class="auth-form-head">
+        <span class="auth-eyebrow">Acesso seguro</span>
+        <h2>Entrar no sistema</h2>
+        <p>Use suas credenciais para acessar o painel de backup.</p>
+      </div>
+
+      <form method="post" class="auth-form">
+        <label for="username">Usuário</label>
+        <input id="username" type="text" name="username" autocomplete="username" required>
+
+        <label for="password">Senha</label>
+        <input id="password" type="password" name="password" autocomplete="current-password" required>
+
+        <button class="btn primary auth-submit" type="submit">Entrar</button>
+      </form>
+    </div>
+  </section>
+{% endblock %}

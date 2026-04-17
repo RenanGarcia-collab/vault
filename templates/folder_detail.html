@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="page-crumbs">
+    <a href="{{ url_for('index') }}" data-nav>Dashboard</a>
+    {% for item in folder_path %}
+      <span>/</span>
+      {% if loop.last %}
+        <strong>{{ item['name'] }}</strong>
+      {% else %}
+        <a href="{{ url_for('folder_detail', folder_id=item['id']) }}" data-nav>{{ item['name'] }}</a>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <div class="folder open" data-folder="{{ folder_id }}">
+    <div class="folder-head">
+      <div class="folder-title">
+        <span class="folder-icon">
+          <svg viewBox="0 0 120 90" aria-hidden="true">
+            <path class="tab" d="M10 20h34l8 10h58a6 6 0 0 1 6 6v40a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6V26a6 6 0 0 1 6-6z" />
+            <path class="body" d="M6 30h108a6 6 0 0 1 6 6v36a6 6 0 0 1-6 6H6a6 6 0 0 1-6-6V36a6 6 0 0 1 6-6z" />
+            <circle class="dot" cx="92" cy="52" r="6" />
+          </svg>
+        </span>
+        {{ folder_label }}
+        {% if user and user['role'] == 'admin' %}
+          <a class="folder-edit-link" href="{{ url_for('folders_edit', folder_id=folder_id) }}" title="Editar pasta">✎</a>
+        {% endif %}
+      </div>
+      <div class="folder-meta">
+        <div class="folder-count">{{ devices|length }} equipamentos</div>
+        <div class="folder-last">Última execução: {{ humanize(last_backup) }}</div>
+      </div>
+    </div>
+    <div class="actions">
+      {% if user and user['role'] == 'admin' %}
+        <a class="btn primary" href="{{ url_for('devices_new') + '?folder_id=' + folder_id|string }}">Novo equipamento</a>
+        <a class="btn ghost" href="{{ url_for('folders_edit', folder_id=folder_id) }}">Editar pasta</a>
+        <a class="btn ghost" href="{{ url_for('folders_new') + '?parent_id=' + folder_id|string }}">Nova subpasta</a>
+        {% if devices|length == 0 and subfolders|length == 0 %}
+          <form method="post" action="{{ url_for('folder_delete', folder_id=folder_id) }}" onsubmit="return confirm('Tem certeza de que deseja excluir esta pasta?')" style="display:inline;">
+            <button class="btn danger" type="submit">Excluir pasta</button>
+          </form>
+        {% else %}
+          <span class="badge-none">Para excluir esta pasta, mova ou remova as subpastas e equipamentos primeiro.</span>
+        {% endif %}
+      {% endif %}
+      <a class="btn ghost" href="{{ url_for('index') }}" data-nav>Voltar ao dashboard</a>
+    </div>
+  </div>
+
+  <div class="dashboard-section-head">
+    <div>
+      <div class="pulse-badge">EQUIPAMENTOS</div>
+      <h2>Equipamentos da pasta</h2>
+    </div>
+    <div class="dashboard-section-meta">{{ devices|length }} equipamentos</div>
+  </div>
+
+  <div class="grid folder-open-grid">
+    {% for d in devices %}
+      <div class="card">
+        <div class="card-title device-card-title" title="{{ d['name'] }}">{{ d['name'] }}</div>
+        {% set status = latest_status.get(d['id'], 'ok') %}
+        <div class="chip {{ d['vendor'] | lower }}">{{ d['vendor_label'] or d['vendor'] }}</div>
+        <div class="device-status">
+          <span class="status-dot status-{{ 'ok' if status == 'ok' else 'warn' if status in ['short','invalid','same'] else 'err' }}"></span>
+          <span>{{ status }}</span>
+        </div>
+        <div class="meta">{{ d['ipaddr'] }}:{{ d['port'] }}</div>
+        <div class="meta">Coleta: {{ d['script_label'] or d['vendor_label'] or d['vendor'] }}</div>
+        <div class="meta">Intervalo global: {{ global_interval }} min</div>
+        <div class="meta">
+          Próximo agendamento:
+          {% if d['next_run_at'] %}
+            {{ format_datetime(d['next_run_at']) }}
+          {% else %}
+            <span class="badge-none">Sem agendamento</span>
+          {% endif %}
+        </div>
+        <div class="last-line">
+          <span class="pulse-dot"></span>
+          <span>Última execução: {{ humanize(d['last_run_at']) }}</span>
+        </div>
+        <div class="actions">
+          <a class="btn" href="{{ url_for('device_detail', device_id=d['id']) }}">Ver detalhes</a>
+          {% if user and user['role'] == 'admin' %}
+            <a class="btn ghost" href="{{ url_for('devices_edit', device_id=d['id']) }}">Editar</a>
+            <form method="post" action="{{ url_for('device_delete', device_id=d['id']) }}" onsubmit="return confirm('Tem certeza de que deseja excluir este equipamento?')" style="display:inline;">
+              <button class="btn danger" type="submit">Excluir equipamento</button>
+            </form>
+          {% endif %}
+        </div>
+        {% if user and user['role'] == 'admin' %}
+          <form class="move-form" method="post" action="{{ url_for('device_move', device_id=d['id']) }}">
+            <label>Mover para a pasta:</label>
+            <select name="target_folder" required>
+              <option value="">Selecione</option>
+              {% for f in folder_options %}
+                {% if f['id'] != folder_id %}
+                  <option value="{{ f['id'] }}">{{ f['name'] }}</option>
+                {% endif %}
+              {% endfor %}
+            </select>
+            <button class="btn" type="submit">Mover</button>
+          </form>
+        {% endif %}
+        <div class="status-bar"><div class="status-fill"></div></div>
+      </div>
+    {% else %}
+      <div class="card">Nenhum equipamento nesta pasta.</div>
+    {% endfor %}
+  </div>
+{% endblock %}

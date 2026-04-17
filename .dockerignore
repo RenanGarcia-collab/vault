@@ -1,0 +1,7 @@
+instance/
+backups/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.db

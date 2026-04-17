@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="dashboard-top">
+    <div class="storage-grid">
+      <div class="card storage-mini storage-mini-backups">
+        <div class="storage-mini-head">
+          <div>
+            <div class="pulse-badge">BACKUPS SALVOS</div>
+            <h2>Volume atual</h2>
+          </div>
+          <span class="storage-state storage-state-{{ storage_state_class }}">{{ storage_state_label }}</span>
+        </div>
+        <div class="storage-mini-value">{{ format_bytes(storage_used_bytes) }}</div>
+        <div class="storage-mini-subtle">Armazenado em `{{ backup_root or '/srv/backup' }}`.</div>
+      </div>
+
+      <div class="card storage-mini storage-mini-vault">
+        <div class="storage-mini-head">
+          <div>
+            <div class="pulse-badge">LIMITE DO VAULT</div>
+            <h2>Limite planejado</h2>
+          </div>
+          <span class="storage-state storage-state-{{ storage_state_class }}">{{ storage_state_label }}</span>
+        </div>
+        <div class="storage-mini-layout">
+          <div>
+            <div class="storage-mini-value">{{ format_gb(storage_total_gb) }}</div>
+            <div class="storage-mini-subtle">{{ format_bytes(storage_remaining_bytes) }} livres no planejamento.</div>
+          </div>
+          <div class="storage-progress-wrap">
+            <div class="storage-progress">
+              <div class="storage-progress-bar storage-progress-{{ storage_state_class }}" style="width: {{ storage_pct }}%;"></div>
+            </div>
+            <div class="storage-progress-meta">{{ storage_pct }}% do limite</div>
+          </div>
+        </div>
+        {% if user and user['role'] == 'admin' %}
+          <form method="post" action="{{ url_for('settings_storage') }}" class="storage-form">
+            <label for="storage_total_gb">Limite planejado para o Vault</label>
+            <div class="storage-form-row">
+              <input id="storage_total_gb" name="storage_total_gb" value="{{ storage_total_gb }}" placeholder="Ex.: 10 ou 10GB" required>
+              <button class="btn primary" type="submit">Salvar</button>
+            </div>
+          </form>
+        {% endif %}
+      </div>
+
+      <div class="card storage-mini storage-mini-disk">
+        <div class="storage-mini-head">
+          <div>
+            <div class="pulse-badge">DISCO REAL</div>
+            <h2>Volume real</h2>
+          </div>
+          <span class="storage-state storage-state-{{ disk_state_class }}">{{ disk_state_label }}</span>
+        </div>
+        <div class="storage-mini-value">{{ format_bytes(disk_free_bytes) }}</div>
+        <div class="storage-mini-subtle">Livre no volume onde `{{ backup_root or '/srv/backup' }}` está montado.</div>
+        <div class="storage-inline-metrics">
+          <div>
+            <span class="subtle">Usado</span>
+            <strong>{{ format_bytes(disk_used_bytes) }}</strong>
+          </div>
+          <div>
+            <span class="subtle">Total</span>
+            <strong>{{ format_bytes(disk_total_bytes) }}</strong>
+          </div>
+          <div>
+            <span class="subtle">Ocupação</span>
+            <strong>{{ disk_pct }}%</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if folders %}
+    <div class="dashboard-section-head">
+      <div>
+        <div class="pulse-badge">PASTAS</div>
+        <h2>Estrutura de backup</h2>
+      </div>
+      <div class="dashboard-section-meta">{{ folders|length }} grupos monitorados</div>
+    </div>
+    <div class="vendor-grid">
+      {% for folder in folders %}
+        <a class="vendor-card" href="{{ url_for('folder_detail', folder_id=folder['id']) }}">
+          <div class="vendor-icon">
+            <svg viewBox="0 0 120 90" aria-hidden="true">
+              <path class="tab" d="M10 20h34l8 10h58a6 6 0 0 1 6 6v40a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6V26a6 6 0 0 1 6-6z" />
+              <path class="body" d="M6 30h108a6 6 0 0 1 6 6v36a6 6 0 0 1-6 6H6a6 6 0 0 1-6-6V36a6 6 0 0 1 6-6z" />
+              <circle class="dot" cx="92" cy="52" r="6" />
+            </svg>
+          </div>
+          <div class="vendor-title" title="{{ folder['name'] }}">{{ folder['name'] }}</div>
+          <div class="vendor-meta">{{ folder_counts.get(folder['id'], 0) }} equipamentos</div>
+          <div class="vendor-meta">Última execução: {{ humanize(folder_summaries.get(folder['id'])) }}</div>
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card">Nenhuma pasta cadastrada.</div>
+  {% endif %}
+{% endblock %}

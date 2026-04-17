@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="page-crumbs">
+    <a href="{{ url_for('index') }}">Dashboard</a>
+    {% if folder_path %}
+      {% for item in folder_path %}
+        <span>/</span>
+        {% if loop.last %}
+          <a href="{{ url_for('folder_detail', folder_id=item['id']) }}">{{ item['name'] }}</a>
+        {% else %}
+          <a href="{{ url_for('folder_detail', folder_id=item['id']) }}">{{ item['name'] }}</a>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+    <span>/</span>
+    <strong>{{ device['name'] }}</strong>
+  </div>
+
+  <div class="device-hero">
+    <div class="card hero-card">
+      <div class="card-title">{{ device['name'] }}</div>
+      <div class="chip {{ device['vendor'] | lower }}">{{ device['vendor'] | upper }}</div>
+      <div class="meta">{{ device['ipaddr'] }}:{{ device['port'] }}</div>
+      <div class="meta">Intervalo global: {{ global_interval }} min</div>
+      <div class="meta">Última execução: {{ humanize(device['last_run_at']) }}</div>
+      <div class="meta">
+        Próximo agendamento:
+        {% if device['next_run_at'] %}
+          {{ format_datetime(device['next_run_at']) }}
+        {% else %}
+          <span class="badge-none">Sem agendamento</span>
+        {% endif %}
+      </div>
+      <button class="btn primary" type="button" onclick="startCollect({{ device['id'] }})">Executar coleta agora</button>
+      <div id="collect-status" class="collect-status"></div>
+      <div id="collect-result" class="collect-result"></div>
+      <div class="actions">
+        {% if folder %}
+          <a class="btn ghost" href="{{ url_for('folder_detail', folder_id=folder['id']) }}">Voltar para pasta</a>
+        {% endif %}
+        {% if user and user['role'] == 'admin' %}
+          <a class="btn ghost" href="{{ url_for('devices_edit', device_id=device['id']) }}">Editar equipamento</a>
+          <form method="post" action="{{ url_for('device_delete', device_id=device['id']) }}" onsubmit="return confirm('Tem certeza de que deseja excluir este equipamento?')" style="display:inline;">
+            <button class="btn danger" type="submit">Excluir equipamento</button>
+          </form>
+        {% endif %}
+      </div>
+      <div class="status-bar"><div class="status-fill"></div></div>
+    </div>
+
+    <div class="card pulse-card">
+      <div class="pulse-badge">ÚLTIMA EXECUÇÃO</div>
+      <div class="pulse-time">{{ humanize(device['last_run_at']) }}</div>
+      <div class="pulse-sub">
+        Status:
+        {% if latest_backup %}
+          <span class="status-tag status-{{ latest_backup['status'] or 'ok' }}">
+            {% if (latest_backup['status'] or 'ok') == 'ok' %}OK{% endif %}
+            {% if latest_backup['status'] == 'same' %}SEM ALTERAÇÃO{% endif %}
+            {% if latest_backup['status'] == 'short' %}CURTO{% endif %}
+            {% if latest_backup['status'] == 'invalid' %}INVÁLIDO{% endif %}
+            {% if latest_backup['status'] == 'error' %}ERRO{% endif %}
+          </span>
+        {% else %}
+          <span class="status-tag">Sem dados</span>
+        {% endif %}
+      </div>
+      {% if latest_backup %}
+        <div class="pulse-sub pulse-change-note">{{ latest_change_label }}</div>
+      {% endif %}
+      <div class="pulse-ring"></div>
+      <div class="pulse-ring delay"></div>
+    </div>
+  </div>
+
+  {% if latest_backup %}
+    <div class="card change-callout-card">
+      <div class="pulse-badge">ANÁLISE DO ÚLTIMO BACKUP</div>
+      <h2>Esse device {% if latest_backup['status'] == 'same' %}não possui alterações{% elif latest_backup['status'] == 'ok' %}possui alterações{% else %}precisa de validação{% endif %} desde o último backup.</h2>
+      <div class="meta">Device: <span class="mono">{{ device['name'] }}</span></div>
+      <div class="meta">{{ latest_change_label }}</div>
+      {% if latest_backup['status'] == 'ok' and latest_backup['diff_summary'] %}
+        <div class="diff-summary-row">
+          {% set parts = latest_backup['diff_summary'].split() %}
+          {% for part in parts %}
+            <span class="status-tag {% if part.startswith('added=') %}status-ok{% else %}status-error{% endif %}">
+              {{ part.replace('added=', '+').replace('removed=', '-') }} linhas
+            </span>
+          {% endfor %}
+        </div>
+      {% endif %}
+      <div class="actions">
+        {% if latest_has_compare %}
+          <a class="btn primary pulse-action-btn" href="{{ latest_compare_url }}">Confira aqui</a>
+        {% elif latest_backup['status'] == 'same' %}
+          <span class="badge-none">Nenhuma mudança detectada em relação ao backup anterior.</span>
+        {% elif not previous_backup %}
+          <span class="badge-none">Ainda não existe backup anterior para comparar.</span>
+        {% else %}
+          <span class="badge-none">Comparação indisponível para este status.</span>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+
+  
+  <div class="card">
+    <h2>Conexão e script de coleta</h2>
+    <div class="meta">Conecta em: <span class="mono">{{ device['dev_username'] }}@{{ device['ipaddr'] }}:{{ device['port'] }}</span></div>
+    {% if script %}
+      <div class="meta">Script: {{ script['name'] }}</div>
+      {% if script['pre_text'] %}
+        <div class="meta">Pré-comandos:</div>
+        <pre class="code-block">{{ script['pre_text'] }}</pre>
+      {% endif %}
+      <div class="meta">Comando principal:</div>
+      <pre class="code-block">{{ script['cmd'] }}</pre>
+      {% if script['prompt'] %}
+        <div class="meta">Prompt esperado: <span class="mono">{{ script['prompt'] }}</span></div>
+      {% endif %}
+      <div class="meta">Modo: <span class="mono">{{ script['read_mode'] }}</span></div>
+      {% if script['timeout_seconds'] %}
+        <div class="meta">Timeout: <span class="mono">{{ script['timeout_seconds'] }}s</span></div>
+      {% endif %}
+    {% else %}
+      <div class="meta">Nenhum script associado.</div>
+    {% endif %}
+  </div>
+
+  
+  <div class="card">
+    <h2>Debug log</h2>
+    <div class="meta">Último log de conexão e execução</div>
+    <div id="debug-log-meta" class="meta">
+      {% if device['running'] and device['last_debug_at'] %}
+        Atualizado em {{ format_datetime(device['last_debug_at']) }}
+      {% elif latest_backup %}
+        Último backup em {{ format_datetime(latest_backup['created_at']) }}
+      {% endif %}
+    </div>
+    {% if device['running'] and live_log %}
+      <div class="meta">Debug em tempo real</div>
+      <pre id="debug-log" class="code-block">{{ live_log }}</pre>
+    {% else %}
+      <pre id="debug-log" class="code-block">{{ latest_log or 'Sem log' }}</pre>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Backups recentes</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Hora</th>
+          <th>Status</th>
+          <th>Arquivo</th>
+          <th>Ação</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in backup_rows %}
+          <tr class="{% if loop.first %}latest-row{% endif %} backup-row backup-row-{{ b['status'] or 'ok' }}">
+            <td>{{ format_date(b['created_at']) }}</td>
+            <td>{{ format_time(b['created_at']) }}</td>
+            <td>
+              <span class="status-tag status-{{ b['status'] or 'ok' }}">
+                {% if (b['status'] or 'ok') == 'ok' %}OK{% endif %}
+                {% if b['status'] == 'same' %}SEM ALTERAÇÃO{% endif %}
+                {% if b['status'] == 'short' %}CURTO{% endif %}
+                {% if b['status'] == 'invalid' %}INVÁLIDO{% endif %}
+                {% if b['status'] == 'error' %}ERRO{% endif %}
+              </span>
+            </td>
+            <td class="mono">{{ b['path'] or '—' }}</td>
+            <td>
+              {% if loop.first %}
+                <span class="latest-tag">EXECUÇÃO MAIS RECENTE</span>
+                <span class="change-tag {% if b['status'] == 'same' %}change-tag-same{% elif b['status'] == 'ok' %}change-tag-changed{% else %}change-tag-neutral{% endif %}">
+                  {% if b['status'] == 'same' %}
+                    SEM MUDANÇAS
+                  {% elif b['status'] == 'ok' %}
+                    HOUVE ALTERAÇÃO
+                  {% else %}
+                    VERIFICAR STATUS
+                  {% endif %}
+                </span>
+              {% endif %}
+              {% if b['status'] == 'short' %}
+                <span class="short-tag">BACKUP MUITO CURTO</span>
+              {% endif %}
+              {% if b['path'] and b['file_exists'] %}
+                <a class="btn" href="{{ url_for('download_backup') }}?path={{ b['path'] }}">Baixar</a>
+                <a class="btn ghost" href="{{ url_for('view_backup') }}?path={{ b['path'] }}">Ver detalhes</a>
+                {% if loop.first and latest_has_compare %}
+                  <a class="btn ghost" href="{{ latest_compare_url }}">Conferir mudanças</a>
+                {% endif %}
+              {% elif b['path'] %}
+                <span class="badge-none">Arquivo removido pela retenção</span>
+              {% else %}
+                <span class="badge-none">Sem arquivo</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5">Nenhum backup encontrado.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+{% endblock %}
+
+{% block extra_script %}
+<script>
+function startCollect(id) {
+  const status = document.getElementById('collect-status');
+  const resultBox = document.getElementById('collect-result');
+  const debugLog = document.getElementById('debug-log');
+  const debugMeta = document.getElementById('debug-log-meta');
+  if (resultBox) resultBox.innerHTML = '';
+  status.textContent = 'Iniciando coleta...';
+  fetch(`/devices/${id}/collect_async`, {method: 'POST'})
+    .then(() => {
+      const start = Date.now();
+      const timer = setInterval(async () => {
+        const res = await fetch(`/devices/${id}/status`);
+        const data = await res.json();
+        const elapsed = Math.floor((Date.now() - start) / 1000);
+        const timeout = data.timeout_seconds || 300;
+        let phase = 'executando';
+        const debugText = data.last_debug || '';
+        if (debugText.includes('Connecting to')) phase = 'conectando';
+        if (debugText.includes('sending enable')) phase = 'enable';
+        if (debugText.includes('sending command')) phase = 'comando';
+        if (debugText.includes('pagination')) phase = 'paginação';
+        if (debugText.includes('output bytes')) phase = 'finalizando leitura';
+        status.textContent = `Coletando... ${elapsed}s de ${timeout}s (${phase})`;
+        if (debugLog && debugText) {
+          debugLog.textContent = debugText;
+          debugLog.scrollTop = debugLog.scrollHeight;
+        }
+        if (debugMeta && data.last_debug_at) {
+          debugMeta.textContent = `Atualizado em ${data.last_debug_at}`;
+        }
+        if (data.stale_reset) {
+          status.textContent = 'Coleta anterior travada foi liberada. Atualizando a página...';
+          clearInterval(timer);
+          setTimeout(() => location.reload(), 1000);
+          return;
+        }
+        if (!data.running) {
+          clearInterval(timer);
+          const latestStatus = (data.latest_backup_status || '').toLowerCase();
+          if (latestStatus === 'ok') {
+            status.textContent = 'Coleta finalizada. Alterações detectadas no último backup.';
+          } else if (latestStatus === 'same') {
+            status.textContent = 'Coleta finalizada. Nenhuma alteração detectada.';
+          } else if (latestStatus) {
+            status.textContent = `Coleta finalizada. Status: ${latestStatus}.`;
+          } else {
+            status.textContent = 'Coleta finalizada. Atualizando a página...';
+          }
+          if (resultBox && data.latest_change_label) {
+            let html = `<div class="collect-result-card"><div class="meta">${data.latest_change_label}</div>`;
+            if (data.latest_compare_url) {
+              html += `<div class="actions"><a class="btn primary pulse-action-btn" href="${data.latest_compare_url}">Confira aqui</a></div>`;
+            }
+            html += `</div>`;
+            resultBox.innerHTML = html;
+          }
+          setTimeout(() => location.href = `${window.location.pathname}?refresh=${Date.now()}`, 1400);
+        }
+      }, 1000);
+    });
+}
+</script>
+{% endblock %}

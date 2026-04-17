@@ -1,0 +1,36 @@
+services:
+  web:
+    build: .
+    image: vault-dev:latest
+    container_name: vault-dev-web
+    ports:
+      - "8081:8080"
+    environment:
+      BACKUP_ROOT: /srv/backup
+      BACKUP_DB_PATH: /app/instance/backup.db
+      FLASK_HOST: 0.0.0.0
+      FLASK_PORT: 8080
+      GUNICORN_WORKERS: 2
+      GUNICORN_TIMEOUT: 120
+      TZ: America/Sao_Paulo
+      BACKUP_KEEP_LAST: 3
+    volumes:
+      - ./instance:/app/instance
+      - ./backups:/srv/backup
+    restart: unless-stopped
+
+  scheduler:
+    build: .
+    image: vault-dev:latest
+    container_name: vault-dev-scheduler
+    command: ["bash", "/app/scheduler.sh"]
+    environment:
+      BACKUP_ROOT: /srv/backup
+      BACKUP_DB_PATH: /app/instance/backup.db
+      TZ: America/Sao_Paulo
+      SCHEDULER_SLEEP_SECONDS: 60
+      BACKUP_KEEP_LAST: 3
+    volumes:
+      - ./instance:/app/instance
+      - ./backups:/srv/backup
+    restart: unless-stopped

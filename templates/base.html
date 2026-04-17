@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title or "VAULT" }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/material_blue.css">
+</head>
+<body class="{% block body_class %}{% endblock %}" data-active-path="{{ active_path|join(',') }}">
+  {% block topbar %}
+  <header class="topbar">
+    <div class="brand">
+      <div>
+        <div class="brand-title">VAULT</div>
+        <div class="brand-sub">Backup Management System</div>
+      </div>
+    </div>
+    <div class="header-status">
+      <div class="status-pill">
+        <span class="dot"></span>
+        SISTEMA ATIVO
+      </div>
+      <div class="clock" id="clock">--:--:--</div>
+    </div>
+    {% if session.get('user_id') %}
+      <div class="nav nav-utility">
+        <a class="btn" href="{{ url_for('logout') }}">Sair</a>
+      </div>
+    {% endif %}
+  </header>
+  {% endblock %}
+
+  {% if session.get('user_id') %}
+  <div class="subnav">
+    <div class="subnav-links">
+      <a href="{{ url_for('index') }}">Dashboard</a>
+      <a href="{{ url_for('events') }}">Últimos eventos</a>
+      {% if user and user['role'] == 'admin' %}
+        <a href="{{ url_for('folders_new') }}">Nova pasta</a>
+        <a href="{{ url_for('users_new') }}">Usuários</a>
+        <a href="{{ url_for('scripts') }}">Scripts</a>
+        <a href="{{ url_for('settings') }}">Configurações</a>
+      {% endif %}
+    </div>
+    <button class="btn ghost subnav-back" type="button" onclick="goBack('{{ url_for('index') }}')">Voltar</button>
+  </div>
+  {% endif %}
+
+  <div class="{% if session.get('user_id') %}layout{% endif %}">
+    {% if session.get('user_id') %}
+      <aside class="sidebar">
+        <div class="sidebar-label">
+          <span>Árvore de pastas</span>
+        </div>
+        {% macro render_tree(nodes, level) %}
+          {% for n in nodes %}
+            <div class="tree-row-item" data-node="{{ n.id }}">
+              {% if n.children and n.children|length > 0 %}
+                <button class="tree-toggle" type="button" data-target="tree-{{ n.id }}">▶</button>
+              {% else %}
+                <span class="tree-spacer"></span>
+              {% endif %}
+              <a class="tree-item {% if n.id == current_folder_id %}active{% endif %} {% if level > 0 %}subfolder{% endif %}" href="{{ url_for('folder_detail', folder_id=n.id) }}" data-nav>
+                <span class="tree-icon">📁</span>
+                <span class="tree-name">{{ n.name }}</span>
+                <span class="tree-count">{{ n.count }}</span>
+              </a>
+              {% if user and user['role'] == 'admin' %}
+                <a class="tree-edit-link" href="{{ url_for('folders_edit', folder_id=n.id) }}" title="Editar pasta">✎</a>
+              {% endif %}
+            </div>
+            {% if n.children and n.children|length > 0 %}
+              <div class="tree-children" id="tree-{{ n.id }}">
+                {{ render_tree(n.children, level + 1) }}
+              </div>
+            {% endif %}
+          {% endfor %}
+        {% endmacro %}
+        {{ render_tree(sidebar_tree or [], 0) }}
+      </aside>
+    {% endif %}
+
+    <main class="container {% if session.get('user_id') %}main-content{% endif %}">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-wrap">
+            {% for category, message in messages %}
+              <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <script>
+    function goBack(fallbackUrl) {
+      if (window.history.length > 1) {
+        window.history.back();
+        return;
+      }
+      window.location.href = fallbackUrl;
+    }
+    function updateClock() {
+      const now = new Date();
+      const el = document.getElementById('clock');
+      if (!el) return;
+      el.textContent = now.toLocaleTimeString('pt-BR', { hour12: false });
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    function openTree(id) {
+      const children = document.getElementById(id);
+      const btn = document.querySelector(`[data-target="${id}"]`);
+      if (!children) return;
+      children.classList.remove('collapsed');
+      if (btn) btn.classList.add('open');
+      const height = children.scrollHeight;
+      children.style.maxHeight = height + 'px';
+    }
+
+    function closeTree(id) {
+      const children = document.getElementById(id);
+      const btn = document.querySelector(`[data-target="${id}"]`);
+      if (!children) return;
+      requestAnimationFrame(() => {
+        children.style.maxHeight = '0px';
+      });
+      children.classList.add('collapsed');
+      if (btn) btn.classList.remove('open');
+    }
+
+    function toggleTree(id) {
+      const children = document.getElementById(id);
+      if (!children) return;
+      if (children.classList.contains('collapsed')) {
+        openTree(id);
+        persistOpen(id, true);
+      } else {
+        closeTree(id);
+        persistOpen(id, false);
+      }
+    }
+
+    function persistOpen(id, isOpen) {
+      const key = 'vault.tree.open';
+      const raw = localStorage.getItem(key) || '[]';
+      const set = new Set(JSON.parse(raw));
+      if (isOpen) set.add(id); else set.delete(id);
+      localStorage.setItem(key, JSON.stringify([...set]));
+    }
+
+    function restoreTree() {
+      const key = 'vault.tree.open';
+      const raw = localStorage.getItem(key) || '[]';
+      const openIds = new Set(JSON.parse(raw));
+      document.querySelectorAll('.tree-children').forEach(node => {
+        if (openIds.has(node.id)) {
+          openTree(node.id);
+        } else {
+          node.classList.add('collapsed');
+          node.style.maxHeight = '0px';
+        }
+      });
+    }
+
+    function openActivePath() {
+      const path = (document.body.dataset.activePath || '').split(',').filter(Boolean);
+      path.forEach(id => openTree('tree-' + id));
+    }
+
+    document.querySelectorAll('.tree-toggle').forEach(btn => {
+      btn.addEventListener('click', () => toggleTree(btn.dataset.target));
+    });
+    restoreTree();
+    openActivePath();
+
+    window.addEventListener('resize', () => {
+      document.querySelectorAll('.tree-children:not(.collapsed)').forEach(node => {
+        node.style.maxHeight = node.scrollHeight + 'px';
+      });
+    });
+
+    document.querySelectorAll('[data-nav]').forEach(link => {
+      link.addEventListener('click', (e) => {
+        const main = document.querySelector('.main-content');
+        if (!main) return;
+        e.preventDefault();
+        main.classList.add('page-exit');
+        setTimeout(() => { window.location = link.getAttribute('href'); }, 140);
+      });
+    });
+  </script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
+{% block extra_script %}{% endblock %}
+</body>
+</html>
